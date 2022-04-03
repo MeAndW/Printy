@@ -7,6 +7,7 @@
 #include <utility>
 #include <functional>
 #include <concepts>
+#include <ranges>
 
 #include <string_view>
 /**
@@ -53,7 +54,7 @@ namespace typeview
     }
 }
 
-#define DEBUG(x) std::cout << std::string(sizeof(#x), '-') << '\n' \
+#define pdebug(x) std::cout << std::string(sizeof(#x), '-') << '\n' \
                            << #x << '\n'                      \
                            << std::string(sizeof(#x), '.') << '\n' \
                            << (x) << '\n'                     \
@@ -65,6 +66,7 @@ namespace printy
     {
         { os << t } -> std::same_as<std::basic_ostream<CharT, Traits>&>;
     };
+
 
     /**
      * @brief printy::custom 
@@ -142,12 +144,12 @@ namespace printy
             static constexpr unsigned int indent_size = 4;
             static constexpr char indent_fill = ' ';
 
-            static constexpr bool iterable_use_indent = true;
-            static constexpr char iterable_prefix[] = "{";
-            static constexpr char iterable_delimiter[] = ", ";
-            static constexpr char iterable_suffix[] = "}";
+            static constexpr bool range_use_indent = true;
+            static constexpr char range_prefix[] = "{";
+            static constexpr char range_delimiter[] = ", ";
+            static constexpr char range_suffix[] = "}";
 
-            static constexpr bool tuple_use_indent = true;
+            static constexpr bool tuple_use_indent = false;
             static constexpr char tuple_prefix[] = "(";
             static constexpr char tuple_delimiter[] = ", ";
             static constexpr char tuple_suffix[] = ")";
@@ -170,23 +172,43 @@ namespace printy
         };
         unsigned int Settings::indent_level = 0;
 
-        template<typename CharT, typename Traits, typename iterable_t>
-        std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os, const iterable_t& iterable)
+        /**
+         * @brief The overload responsible for inserting a range. 
+         * Normally, if the inserted range is a range of ranges, a special style is applied. 
+         * `std::string` and `std::string_view` in particular are excluded from this special style.
+         * 
+         * @tparam CharT 
+         * @tparam Traits 
+         * @tparam R 
+         * @param os 
+         * @param r 
+         * @return std::basic_ostream<CharT, Traits>& 
+         */
+        template<typename CharT, typename Traits, std::ranges::range R>
+        std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os, const R& r)
         {
-            os << Settings::iterable_prefix;
-            if (Settings::iterable_use_indent) 
+            typedef std::ranges::range_value_t<R> value_type;
+            constexpr bool use_indent = std::ranges::range<value_type> && Settings::range_use_indent && !std::derived_from<value_type, std::string> && !std::derived_from<value_type, std::string_view>;
+
+            os << Settings::range_prefix;
+            if constexpr (use_indent)
                 Settings::apply_indent(+1, os);
             bool first = true;
-            for (auto&& i : iterable) 
+            for (auto&& e : r)
             {
-                if (!first)
-                    os << Settings::iterable_delimiter;
-                os << i;
-                first = false;
+                if (first)
+                    first = false;
+                else
+                {
+                    os << Settings::range_delimiter;
+                    if constexpr (use_indent)
+                        Settings::apply_indent(0, os);
+                }
+                os << e;
             }
-            if (Settings::iterable_use_indent) 
+            if constexpr (use_indent)
                 Settings::apply_indent(-1, os);
-            os << Settings::iterable_suffix;
+            os << Settings::range_suffix;
             return os;
         }
 
@@ -200,10 +222,11 @@ namespace printy
             std::apply([&os, &first](auto &&...args) {
                 auto print = [&] (auto&& val) 
                 {
-                    if (!first)
+                    if (first)
+                        first = false;
+                    else
                         os << Settings::tuple_delimiter;
                     os << val;
-                    first = false;
                 };
                 (print(args), ...); 
             }, tuple);

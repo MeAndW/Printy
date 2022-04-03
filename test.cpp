@@ -44,6 +44,7 @@
 #include <vector>
 #include <type_traits>
 #include <concepts>
+#include <map>
 // #include "p.hpp"
 
 #include "printy.hpp"
@@ -53,15 +54,27 @@ using namespace std;
 int main() {
     int arr[] = {1, 2, 3, 4, 5};
     array<int, 5> arr2 = {1, 2, 3, 4, 5};
+    auto nested = array<array<int, 4>, 4>{
+        {
+            {1, 2, 3, 4},
+            {5, 6, 7, 8},
+            {9, 10, 11, 12},
+            {13, 14, 15, 16}
+        }
+    };
+
 
     using namespace printy::general;
 
 
+    cout << arr << endl;
     cout << arr2 << endl;
+    cout << nested << endl;
     printy::general::typed_ostream os(cout);
 
-    os << arr;
-
+    os << arr << endl;
+    os << arr2 << endl;
+    os << nested << endl;
     os << tuple<int, int, int>{1, 2, 3} << endl;
     os << make_tuple(1, 2, 
         vector<double>{3.0, 4.0, 5.0},
@@ -77,4 +90,9 @@ int main() {
             make_tuple("world", 2),
         }
     ) << endl;
+    os << std::map<int, string>{
+        {1, "one"},
+        {2, "two"},
+        {3, "three"},
+    } << endl;
 }
